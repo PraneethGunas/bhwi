@@ -11,15 +11,16 @@ use bhwi_async::{Trezor, transport::trezor::TrezorTransport};
 use futures::stream::{StreamExt, TryStreamExt};
 
 use crate::{
-    Device, DeviceEnumerator, DeviceScan, DeviceSelector, DeviceType, PairingCodePrompt, ScanEntry,
-    SkippedDevice, hid::HidChannel, trezor::emulator::EmulatorClient, webusb::WebUsbChannel,
+    Device, DeviceEnumerator, DeviceScan, DeviceSelector, DeviceType, HostInteractionFactory,
+    PairingCodePrompt, ScanEntry, SkippedDevice, hid::HidChannel, trezor::emulator::EmulatorClient,
+    webusb::WebUsbChannel,
 };
 
 pub type TrezorOneDevice = Trezor<TrezorTransport<HidChannel>>;
 pub type TrezorWebUsbDevice = Trezor<TrezorTransport<WebUsbChannel>>;
 pub type TrezorEmulatorDevice = Trezor<TrezorTransport<EmulatorClient>>;
 
-const EMULATOR_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
+pub(crate) const EMULATOR_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
 
 pub struct TrezorDevice;
 
@@ -93,6 +94,7 @@ impl DeviceEnumerator for TrezorDevice {
     async fn enumerate(
         selector: &DeviceSelector,
         _pairing_code: Option<&PairingCodePrompt>,
+        _host_interaction: Option<&HostInteractionFactory>,
     ) -> NativeResult<DeviceScan> {
         let mut scan: DeviceScan = HidBackend::default()
             .enumerate()
@@ -152,11 +154,11 @@ impl DeviceEnumerator for TrezorDevice {
     }
 }
 
-fn emulator_socket(path: &str) -> &str {
+pub(crate) fn emulator_socket(path: &str) -> &str {
     path.strip_prefix("udp:").unwrap_or(path)
 }
 
-fn webusb_path(info: &nusb::DeviceInfo) -> String {
+pub(crate) fn webusb_path(info: &nusb::DeviceInfo) -> String {
     let mut path = format!("webusb:{}", bus_number(info.bus_id()));
     for port in info.port_chain() {
         path.push_str(&format!(":{port}"));
@@ -176,7 +178,7 @@ fn bus_number(bus_id: &str) -> String {
     }
 }
 
-fn hid_path(dev: &HidDevice) -> String {
+pub(crate) fn hid_path(dev: &HidDevice) -> String {
     let suffix = dev.serial_number.as_deref().unwrap_or(&dev.name);
     format!("hid:{:04x}:{:04x}:{suffix}", dev.vendor_id, dev.product_id)
 }
