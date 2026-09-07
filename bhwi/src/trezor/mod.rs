@@ -7,31 +7,7 @@ use crate::device::DeviceId;
 
 pub use error::TrezorError;
 
-#[derive(Clone, Default, zeroize::Zeroize, zeroize_derive::ZeroizeOnDrop)]
-pub struct HostPassphrase(String);
-
-pub const MAX_PASSPHRASE_LENGTH: usize = 50;
-
-impl HostPassphrase {
-    pub fn new(passphrase: String) -> Self {
-        use unicode_normalization::UnicodeNormalization;
-        Self(passphrase.nfkd().collect())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn is_too_long(&self) -> bool {
-        self.0.chars().count() > MAX_PASSPHRASE_LENGTH
-    }
-}
-
-impl core::fmt::Debug for HostPassphrase {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str("HostPassphrase(<redacted>)")
-    }
-}
+pub use crate::common::{HostPassphrase, MAX_PASSPHRASE_LENGTH};
 
 /// Scrambled keypad positions, never the PIN digits themselves.
 #[derive(Clone, Default, zeroize::Zeroize, zeroize_derive::ZeroizeOnDrop)]
