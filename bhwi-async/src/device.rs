@@ -45,6 +45,22 @@ impl fmt::Display for DeviceType {
     }
 }
 
+/// Taproot needs Edge firmware on a Coldcard, and the Trezor One never gained it.
+pub fn can_sign_taproot(device_type: DeviceType, model: &str) -> bool {
+    match device_type {
+        DeviceType::BitBox02 => false,
+        DeviceType::Ledger => true,
+        DeviceType::Jade => false,
+        DeviceType::KeepKey => false,
+        DeviceType::Coldcard => model.contains("edge"),
+        DeviceType::Trezor => model != "trezor_one",
+    }
+}
+
+pub fn reports_device_info(device_type: DeviceType) -> bool {
+    matches!(device_type, DeviceType::KeepKey | DeviceType::Trezor)
+}
+
 #[derive(Debug, Clone)]
 pub struct DeviceSelector {
     pub network: Network,
@@ -420,6 +436,45 @@ impl Device {
             let info = self.device.get_info().await?;
             self.info = Some(info.clone());
             Ok(info)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn taproot_support_matches_python_hwi() {
+        assert!(can_sign_taproot(
+            DeviceType::Ledger,
+            "ledger_nano_s_simulator"
+        ));
+        assert!(!can_sign_taproot(
+            DeviceType::BitBox02,
+            "bitbox02_simulator"
+        ));
+        assert!(!can_sign_taproot(DeviceType::Jade, "jade_simulator"));
+        assert!(can_sign_taproot(
+            DeviceType::Coldcard,
+            "coldcard_simulator_edge"
+        ));
+        assert!(!can_sign_taproot(
+            DeviceType::Coldcard,
+            "coldcard_simulator"
+        ));
+        assert!(can_sign_taproot(DeviceType::Trezor, "trezor_t"));
+        assert!(!can_sign_taproot(DeviceType::Trezor, "trezor_one"));
+    }
+
+    #[test]
+    fn only_trezor_reports_device_info() {
+        for device_type in DeviceType::ALL {
+            assert_eq!(
+                reports_device_info(device_type),
+                device_type == DeviceType::Trezor,
+                "{device_type}"
+            );
         }
     }
 }

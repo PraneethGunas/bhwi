@@ -44,8 +44,9 @@ use crate::management::{trezor_restore_context, trezor_setup_context};
 #[cfg(target_os = "linux")]
 use crate::udev::{UdevRuleSelection, install_udev_rules};
 use crate::{
-    Device, DeviceManager, DeviceSelector, DeviceType, device_manager,
+    Device, DeviceManager, DeviceSelector, DeviceType, can_sign_taproot, device_manager,
     get_descriptors::{GetDescriptorOptions, get_descriptor},
+    reports_device_info,
 };
 
 type HwiResult<T> = std::result::Result<T, HwiError>;
@@ -1995,8 +1996,7 @@ async fn get_keypool(selector: HwiSelector, request: HwiGetKeypoolRequest) -> Hw
     let network = manager.selector.network;
     let addr_types = if request.all {
         hwi_descriptor_addr_types(device_type, &model)
-    } else if request.addr_type == HwiAddressType::Tap && !hwi_can_sign_taproot(device_type, &model)
-    {
+    } else if request.addr_type == HwiAddressType::Tap && !can_sign_taproot(device_type, &model) {
         return HwiResponse::Error(HwiError::new(
             HwiErrorCode::UnsupportedCommand,
             "Device does not support Taproot",
@@ -2295,21 +2295,10 @@ fn hwi_descriptor_addr_types(device_type: DeviceType, model: &str) -> Vec<HwiAdd
         HwiAddressType::Wit,
         HwiAddressType::ShWit,
     ];
-    if hwi_can_sign_taproot(device_type, model) {
+    if can_sign_taproot(device_type, model) {
         types.push(HwiAddressType::Tap);
     }
     types
-}
-
-fn hwi_can_sign_taproot(device_type: DeviceType, model: &str) -> bool {
-    match device_type {
-        DeviceType::BitBox02 => false,
-        DeviceType::Ledger => true,
-        DeviceType::Jade => false,
-        DeviceType::KeepKey => false,
-        DeviceType::Coldcard => model.contains("edge"),
-        DeviceType::Trezor => model != "trezor_one",
-    }
 }
 
 fn hwi_descriptor_string(
@@ -2375,10 +2364,6 @@ fn get_xpub_response(xpub: Xpub, expert: bool) -> HwiGetXpubResponse {
         chaincode: Some(hex::encode(xpub.chain_code)),
         pubkey: Some(hex::encode(xpub.public_key.serialize())),
     }
-}
-
-fn reports_device_info(device_type: DeviceType) -> bool {
-    matches!(device_type, DeviceType::KeepKey | DeviceType::Trezor)
 }
 
 fn label_for(device_type: DeviceType, label: Option<String>) -> Option<Option<String>> {
@@ -4263,7 +4248,7 @@ mod tests {
                 HwiAddressType::ShWit,
             ]
         );
-        assert!(hwi_can_sign_taproot(
+        assert!(can_sign_taproot(
             DeviceType::Coldcard,
             "coldcard_simulator_edge"
         ));
