@@ -291,11 +291,15 @@ pub mod emulator {
         #[tokio::test]
         async fn ping_detects_a_listening_emulator() {
             let (socket, addr) = peer().await;
+            // Serving every datagram, not just the first: a stray one would
+            // otherwise consume the only reply and strand the ping.
             tokio::spawn(async move {
                 let mut buf = [0u8; REPORT_SIZE];
-                let (read, from) = socket.recv_from(&mut buf).await.unwrap();
-                assert_eq!(&buf[..read], PING);
-                socket.send_to(PONG, from).await.unwrap();
+                while let Ok((read, from)) = socket.recv_from(&mut buf).await {
+                    if &buf[..read] == PING {
+                        let _ = socket.send_to(PONG, from).await;
+                    }
+                }
             });
 
             let client = EmulatorClient::new(&addr).await.unwrap();
@@ -304,10 +308,9 @@ pub mod emulator {
 
         #[tokio::test]
         async fn ping_reports_a_missing_emulator() {
-            let (socket, addr) = peer().await;
-            drop(socket);
-
-            let client = EmulatorClient::new(&addr).await.unwrap();
+            // A freed ephemeral port can be handed straight back to another
+            // test's `peer`, whose responder would then answer this ping.
+            let client = EmulatorClient::new("127.0.0.1:1").await.unwrap();
             assert!(!client.ping(Duration::from_millis(250)).await);
         }
 
