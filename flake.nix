@@ -362,6 +362,8 @@
           export KEEPKEY_GOOGLETEST_PATCH="${python-hwi}/test/data/keepkey-googletest.patch"
           export KEEPKEY_NANOPB_PATCH="${python-hwi}/test/data/nanopb-deprecated-mode.patch"
           export KEEPKEY_CMAKE_PATCH="${./nix/patches/keepkey/cmake-minimum.patch}"
+          export KEEPKEY_MEMCHECK_PATCH="${./nix/patches/keepkey/keepkey-emulator-memcheck.patch}"
+          export KEEPKEY_UNPACKED_PATCH="${./nix/patches/keepkey/keepkey-unpacked-structs.patch}"
           export KEEPKEY_PROTOC="${pkgs.protobuf}/bin/protoc"
         '';
         mkHwiParityRunner = name: device: runtimeInputs: env:
